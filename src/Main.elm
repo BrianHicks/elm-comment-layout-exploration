@@ -88,7 +88,7 @@ findNewAttachmentTopsTask ids =
         |> List.map
             (\id ->
                 Dom.getElement ("attachment-" ++ String.fromInt id)
-                    |> Task.map (\{ element } -> Just ( id, (Debug.log "element" element).y ))
+                    |> Task.map (\{ element } -> Just ( id, element.y ))
                     |> Task.onError (\_ -> Task.succeed Nothing)
             )
         |> Task.sequence
@@ -147,7 +147,12 @@ view model =
                 ++ List.map
                     (\( id, comment ) ->
                         Html.div
-                            [ Attrs.id ("comment-" ++ String.fromInt id) ]
+                            [ Attrs.id ("comment-" ++ String.fromInt id)
+
+                            -- position
+                            , Attrs.style "position" "absolute"
+                            , Attrs.style "left" (String.fromInt (horizMargin * 2) ++ "px")
+                            ]
                             [ Comment.view comment ]
                     )
                     (Dict.toList model.comments)
