@@ -10,7 +10,7 @@ import Html exposing (Html)
 import Html.Attributes as Attrs
 import Html.Events
 import Json.Decode as Decode
-import Task
+import Task exposing (Task)
 
 
 type alias Model =
@@ -71,15 +71,11 @@ update msg model =
                     ( model, Cmd.none )
 
         AttachmentsMoved tops ->
-            let
-                _ =
-                    Debug.log "tops" tops
-            in
             ( model, Cmd.none )
 
 
-findNewAttachmentTops : List Int -> Cmd Msg
-findNewAttachmentTops ids =
+findNewAttachmentTopsTask : List Int -> Task Never (List ( Int, Float ))
+findNewAttachmentTopsTask ids =
     -- TODO: this may need Process.sleep 0 to be accurate in all cases
     ids
         |> List.map
@@ -90,7 +86,11 @@ findNewAttachmentTops ids =
             )
         |> Task.sequence
         |> Task.map (List.filterMap identity)
-        |> Task.perform AttachmentsMoved
+
+
+findNewAttachmentTops : List Int -> Cmd Msg
+findNewAttachmentTops ids =
+    Task.perform AttachmentsMoved (findNewAttachmentTopsTask ids)
 
 
 view : Model -> Browser.Document Msg
