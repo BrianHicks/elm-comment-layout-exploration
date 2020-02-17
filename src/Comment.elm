@@ -1,16 +1,13 @@
-module Comment exposing (Comment, init, view)
+module Comment exposing (Comment, view)
 
 import Html exposing (Html)
 import Html.Attributes as Attrs
 
 
 type alias Comment =
-    { height : Int }
-
-
-init : Int -> Comment
-init =
-    Comment << abs
+    { id : Int
+    , height : Int
+    }
 
 
 view : Comment -> Html msg

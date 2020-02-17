@@ -1,6 +1,6 @@
 module Main exposing (..)
 
-import Attachment exposing (Attachment(..))
+import Attachment exposing (Attachment)
 import Browser
 import Browser.Dom as Dom
 import Browser.Events
@@ -31,24 +31,28 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     let
         attachments =
-            Dict.fromList
-                [ ( 1, Attachment 200 1 )
-                , ( 2, Attachment 220 2 )
-                , ( 3, Attachment 400 3 )
-                ]
+            [ Attachment 1 200 1
+            , Attachment 2 220 2
+            , Attachment 3 400 3
+            ]
 
         comments =
-            Dict.fromList
-                [ ( 1, Comment 180 )
-                , ( 2, Comment 120 )
-                , ( 3, Comment 100 )
-                ]
+            [ Comment 1 180
+            , Comment 2 120
+            , Comment 3 100
+            ]
     in
-    ( { attachments = attachments
-      , comments = comments
+    ( { attachments =
+            attachments
+                |> List.map (\({ id } as attachment) -> ( id, attachment ))
+                |> Dict.fromList
+      , comments =
+            comments
+                |> List.map (\({ id } as comment) -> ( id, comment ))
+                |> Dict.fromList
       , dragging = Nothing
       }
-    , findNewAttachmentTops (Dict.keys attachments)
+    , findNewAttachmentTops (List.map .id attachments)
     )
 
 
@@ -68,7 +72,7 @@ update msg model =
                         | attachments =
                             Dict.update
                                 id
-                                (Maybe.map (\(Attachment _ commentId) -> Attachment top commentId))
+                                (Maybe.map (\attachment -> { attachment | top = top }))
                                 model.attachments
                       }
                     , findNewAttachmentTops (Dict.keys model.attachments)
@@ -127,7 +131,7 @@ view model =
              ]
                 -- attachments
                 ++ List.map
-                    (\( id, (Attachment top _) as attachment ) ->
+                    (\( id, attachment ) ->
                         Html.div
                             [ Attrs.id ("attachment-" ++ String.fromInt id)
 
@@ -137,7 +141,7 @@ view model =
                             -- position
                             , Attrs.style "position" "absolute"
                             , Attrs.style "left" (String.fromInt horizMargin ++ "px")
-                            , Attrs.style "top" (String.fromFloat top ++ "px")
+                            , Attrs.style "top" (String.fromFloat attachment.top ++ "px")
                             ]
                             [ Attachment.view attachment
                             ]

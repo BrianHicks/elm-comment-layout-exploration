@@ -1,16 +1,19 @@
-module Attachment exposing (Attachment(..), view)
+module Attachment exposing (Attachment, view)
 
 import Html exposing (Html)
 import Html.Attributes as Attrs
 import Html.Events as Events
 
 
-type Attachment
-    = Attachment Float Int
+type alias Attachment =
+    { id : Int
+    , top : Float
+    , commentId : Int
+    }
 
 
 view : Attachment -> Html msg
-view (Attachment _ commentId) =
+view { commentId } =
     Html.div
         [ Attrs.style "width" "15px"
         , Attrs.style "height" "15px"
