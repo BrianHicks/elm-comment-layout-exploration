@@ -15,7 +15,7 @@ import Task exposing (Task)
 
 type alias Model =
     { attachments : Dict Int Attachment
-    , comments : List Comment
+    , comments : Dict Int Comment
     , dragging : Maybe Int
     }
 
@@ -32,13 +32,20 @@ init _ =
     let
         attachments =
             Dict.fromList
-                [ ( 1, Attachment 200 )
-                , ( 2, Attachment 220 )
-                , ( 3, Attachment 400 )
+                [ ( 1, Attachment 200 1 )
+                , ( 2, Attachment 220 2 )
+                , ( 3, Attachment 400 3 )
+                ]
+
+        comments =
+            Dict.fromList
+                [ ( 1, Comment 180 )
+                , ( 2, Comment 120 )
+                , ( 3, Comment 100 )
                 ]
     in
     ( { attachments = attachments
-      , comments = []
+      , comments = comments
       , dragging = Nothing
       }
     , findNewAttachmentTops (Dict.keys attachments)
@@ -61,7 +68,7 @@ update msg model =
                         | attachments =
                             Dict.update
                                 id
-                                (Maybe.map (\_ -> Attachment top))
+                                (Maybe.map (\(Attachment _ commentId) -> Attachment top commentId))
                                 model.attachments
                       }
                     , findNewAttachmentTops (Dict.keys model.attachments)
@@ -120,7 +127,7 @@ view model =
              ]
                 -- attachments
                 ++ List.map
-                    (\( id, (Attachment top) as attachment ) ->
+                    (\( id, (Attachment top _) as attachment ) ->
                         Html.div
                             [ Attrs.id ("attachment-" ++ String.fromInt id)
 
@@ -137,7 +144,13 @@ view model =
                     )
                     (Dict.toList model.attachments)
                 -- comments
-                ++ List.map Comment.view model.comments
+                ++ List.map
+                    (\( id, comment ) ->
+                        Html.div
+                            [ Attrs.id ("comment-" ++ String.fromInt id) ]
+                            [ Comment.view comment ]
+                    )
+                    (Dict.toList model.comments)
             )
         ]
     }
