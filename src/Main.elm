@@ -2,33 +2,67 @@ module Main exposing (..)
 
 import Attachment exposing (Attachment)
 import Browser
+import Browser.Events
 import Comment exposing (Comment)
+import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attrs
+import Html.Events
+import Json.Decode as Decode
 
 
 type alias Model =
-    { attachments : List Attachment
+    { attachments : Dict Int Attachment
     , comments : List Comment
+    , dragging : Maybe Int
     }
 
 
 type Msg
-    = AddNewCommentAndAttachment
+    = MouseDownOnAttachment Int
+    | MouseUp
+    | MouseMove Int
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { attachments = []
+    ( { attachments =
+            Dict.fromList
+                [ ( 1, Attachment 20 )
+                , ( 2, Attachment 40 )
+                , ( 3, Attachment 100 )
+                ]
       , comments = []
+      , dragging = Nothing
       }
     , Cmd.none
     )
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update _ _ =
-    Debug.todo "update"
+update msg model =
+    case msg of
+        MouseDownOnAttachment id ->
+            ( { model | dragging = Just id }, Cmd.none )
+
+        MouseUp ->
+            ( { model | dragging = Nothing }, Cmd.none )
+
+        MouseMove top ->
+            case model.dragging of
+                Just id ->
+                    ( { model
+                        | attachments =
+                            Dict.update
+                                id
+                                (Maybe.map (\attachment -> { attachment | top = top }))
+                                model.attachments
+                      }
+                    , Cmd.none
+                    )
+
+                Nothing ->
+                    ( model, Cmd.none )
 
 
 view : Model -> Browser.Document Msg
@@ -57,7 +91,20 @@ view model =
                 []
              ]
                 -- attachments
-                ++ List.map (Attachment.view horizMargin) model.attachments
+                ++ List.map
+                    (\( id, attachment ) ->
+                        Html.div
+                            [ Html.Events.onMouseDown (MouseDownOnAttachment id)
+
+                            -- position
+                            , Attrs.style "position" "absolute"
+                            , Attrs.style "left" (String.fromInt horizMargin ++ "px")
+                            , Attrs.style "top" (String.fromInt attachment.top ++ "px")
+                            ]
+                            [ Attachment.view attachment
+                            ]
+                    )
+                    (Dict.toList model.attachments)
                 -- comments
                 ++ List.map Comment.view model.comments
             )
@@ -71,5 +118,14 @@ main =
         { init = init
         , update = update
         , view = view
-        , subscriptions = \_ -> Sub.none
+        , subscriptions =
+            \{ dragging } ->
+                Sub.batch
+                    [ Browser.Events.onMouseUp (Decode.succeed MouseUp)
+                    , if dragging /= Nothing then
+                        Browser.Events.onMouseMove (Decode.map MouseMove (Decode.field "pageY" Decode.int))
+
+                      else
+                        Sub.none
+                    ]
         }

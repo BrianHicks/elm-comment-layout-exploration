@@ -2,6 +2,7 @@ module Attachment exposing (Attachment, init, view)
 
 import Html exposing (Html)
 import Html.Attributes as Attrs
+import Html.Events as Events
 
 
 type alias Attachment =
@@ -13,8 +14,8 @@ init =
     Attachment << abs
 
 
-view : Int -> Attachment -> Html msg
-view left { top } =
+view : Attachment -> Html msg
+view _ =
     Html.div
         [ Attrs.style "width" "15px"
         , Attrs.style "height" "15px"
@@ -22,10 +23,5 @@ view left { top } =
         , Attrs.style "border-radius" "100%"
         , Attrs.style "background-color" "white"
         , Attrs.style "cursor" "pointer"
-
-        -- position
-        , Attrs.style "position" "absolute"
-        , Attrs.style "left" (String.fromInt left ++ "px")
-        , Attrs.style "top" (String.fromInt top ++ "px")
         ]
         []
