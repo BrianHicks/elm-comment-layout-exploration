@@ -25,6 +25,7 @@ type Msg
     | MouseUp
     | MouseMove Float
     | AttachmentsMoved (List ( Int, Float ))
+    | GotCommentHeights (List ( Int, Float ))
 
 
 init : () -> ( Model, Cmd Msg )
@@ -52,7 +53,10 @@ init _ =
                 |> Dict.fromList
       , dragging = Nothing
       }
-    , findNewAttachmentTops (List.map .id attachments)
+    , Cmd.batch
+        [ findNewAttachmentTops (List.map .id attachments)
+        , findCommentHeights (List.map .id comments)
+        ]
     )
 
 
@@ -84,6 +88,13 @@ update msg model =
         AttachmentsMoved tops ->
             ( model, Cmd.none )
 
+        GotCommentHeights heights ->
+            let
+                _ =
+                    Debug.log "heights" heights
+            in
+            ( model, Cmd.none )
+
 
 findNewAttachmentTopsTask : List Int -> Task Never (List ( Int, Float ))
 findNewAttachmentTopsTask ids =
@@ -102,6 +113,25 @@ findNewAttachmentTopsTask ids =
 findNewAttachmentTops : List Int -> Cmd Msg
 findNewAttachmentTops ids =
     Task.perform AttachmentsMoved (findNewAttachmentTopsTask ids)
+
+
+findCommentHeightsTask : List Int -> Task Never (List ( Int, Float ))
+findCommentHeightsTask ids =
+    -- TODO: this may need Process.sleep 0 to be accurate in all cases
+    ids
+        |> List.map
+            (\id ->
+                Dom.getElement ("comment-" ++ String.fromInt id)
+                    |> Task.map (\{ element } -> Just ( id, element.height ))
+                    |> Task.onError (\_ -> Task.succeed Nothing)
+            )
+        |> Task.sequence
+        |> Task.map (List.filterMap identity)
+
+
+findCommentHeights : List Int -> Cmd Msg
+findCommentHeights ids =
+    Task.perform GotCommentHeights (findCommentHeightsTask ids)
 
 
 view : Model -> Browser.Document Msg
