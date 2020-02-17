@@ -1,17 +1,12 @@
-module Attachment exposing (Attachment, init, view)
+module Attachment exposing (Attachment(..), view)
 
 import Html exposing (Html)
 import Html.Attributes as Attrs
 import Html.Events as Events
 
 
-type alias Attachment =
-    { top : Int }
-
-
-init : Int -> Attachment
-init =
-    Attachment << abs
+type Attachment
+    = Attachment Float
 
 
 view : Attachment -> Html msg
