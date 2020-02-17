@@ -1,7 +1,8 @@
 module Main exposing (..)
 
-import Attachment exposing (Attachment)
+import Attachment exposing (Attachment(..))
 import Browser
+import Browser.Dom as Dom
 import Browser.Events
 import Comment exposing (Comment)
 import Dict exposing (Dict)
@@ -9,6 +10,7 @@ import Html exposing (Html)
 import Html.Attributes as Attrs
 import Html.Events
 import Json.Decode as Decode
+import Task
 
 
 type alias Model =
@@ -21,21 +23,25 @@ type alias Model =
 type Msg
     = MouseDownOnAttachment Int
     | MouseUp
-    | MouseMove Int
+    | MouseMove Float
+    | AttachmentsMoved (List ( Int, Float ))
 
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { attachments =
+    let
+        attachments =
             Dict.fromList
-                [ ( 1, Attachment 20 )
-                , ( 2, Attachment 40 )
-                , ( 3, Attachment 100 )
+                [ ( 1, Attachment 200 )
+                , ( 2, Attachment 220 )
+                , ( 3, Attachment 400 )
                 ]
+    in
+    ( { attachments = attachments
       , comments = []
       , dragging = Nothing
       }
-    , Cmd.none
+    , findNewAttachmentTops (Dict.keys attachments)
     )
 
 
@@ -55,14 +61,36 @@ update msg model =
                         | attachments =
                             Dict.update
                                 id
-                                (Maybe.map (\attachment -> { attachment | top = top }))
+                                (Maybe.map (\_ -> Attachment top))
                                 model.attachments
                       }
-                    , Cmd.none
+                    , findNewAttachmentTops (Dict.keys model.attachments)
                     )
 
                 Nothing ->
                     ( model, Cmd.none )
+
+        AttachmentsMoved tops ->
+            let
+                _ =
+                    Debug.log "tops" tops
+            in
+            ( model, Cmd.none )
+
+
+findNewAttachmentTops : List Int -> Cmd Msg
+findNewAttachmentTops ids =
+    -- TODO: this may need Process.sleep 0 to be accurate in all cases
+    ids
+        |> List.map
+            (\id ->
+                Dom.getElement ("attachment-" ++ String.fromInt id)
+                    |> Task.map (\{ element } -> Just ( id, (Debug.log "element" element).y ))
+                    |> Task.onError (\_ -> Task.succeed Nothing)
+            )
+        |> Task.sequence
+        |> Task.map (List.filterMap identity)
+        |> Task.perform AttachmentsMoved
 
 
 view : Model -> Browser.Document Msg
@@ -92,14 +120,17 @@ view model =
              ]
                 -- attachments
                 ++ List.map
-                    (\( id, attachment ) ->
+                    (\( id, (Attachment top) as attachment ) ->
                         Html.div
-                            [ Html.Events.onMouseDown (MouseDownOnAttachment id)
+                            [ Attrs.id ("attachment-" ++ String.fromInt id)
+
+                            -- events
+                            , Html.Events.onMouseDown (MouseDownOnAttachment id)
 
                             -- position
                             , Attrs.style "position" "absolute"
                             , Attrs.style "left" (String.fromInt horizMargin ++ "px")
-                            , Attrs.style "top" (String.fromInt attachment.top ++ "px")
+                            , Attrs.style "top" (String.fromFloat top ++ "px")
                             ]
                             [ Attachment.view attachment
                             ]
@@ -123,7 +154,7 @@ main =
                 Sub.batch
                     [ Browser.Events.onMouseUp (Decode.succeed MouseUp)
                     , if dragging /= Nothing then
-                        Browser.Events.onMouseMove (Decode.map MouseMove (Decode.field "pageY" Decode.int))
+                        Browser.Events.onMouseMove (Decode.map MouseMove (Decode.field "pageY" Decode.float))
 
                       else
                         Sub.none
