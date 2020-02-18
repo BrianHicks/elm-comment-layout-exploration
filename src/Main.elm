@@ -116,10 +116,20 @@ update msg model =
             )
 
         FocusOn commentId ->
-            ( { model | focused = Just commentId }, Cmd.none )
+            ( { model
+                | focused = Just commentId
+                , commentPositions = Maybe.map (Constraint.focusOn commentId) model.commentPositions
+              }
+            , Cmd.none
+            )
 
         Unfocus ->
-            ( { model | focused = Nothing }, Cmd.none )
+            ( { model
+                | focused = Nothing
+                , commentPositions = Maybe.map Constraint.unfocus model.commentPositions
+              }
+            , Cmd.none
+            )
 
 
 finalAttachments : List ( Int, Float ) -> Dict Int Float
@@ -223,7 +233,11 @@ view model =
                             [ Attrs.id ("comment-" ++ String.fromInt id)
 
                             -- events
-                            , Html.Events.onClick (FocusOn id)
+                            , if model.focused == Just id then
+                                Html.Events.onClick Unfocus
+
+                              else
+                                Html.Events.onClick (FocusOn id)
 
                             -- position
                             , Attrs.style "transition" "top 0.25s ease, left 0.25s ease"
