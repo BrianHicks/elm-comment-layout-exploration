@@ -32,7 +32,6 @@ init { heights, attachments, margin } =
         , positions = attachments
         , margin = margin
         }
-        |> Debug.log "initial"
 
 
 positions : Model -> Dict Int Float

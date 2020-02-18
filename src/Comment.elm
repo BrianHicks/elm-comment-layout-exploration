@@ -11,7 +11,7 @@ type alias Comment =
 
 
 view : Comment -> Html msg
-view { height } =
+view { height, id } =
     Html.div
         [ Attrs.style "width" "150px"
         , Attrs.style "height" (String.fromInt height ++ "px")
@@ -19,4 +19,4 @@ view { height } =
         , Attrs.style "border-radius" "10px"
         , Attrs.style "background-color" "white"
         ]
-        []
+        [ Html.text (String.fromInt id) ]
