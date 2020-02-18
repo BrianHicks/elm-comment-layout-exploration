@@ -27,7 +27,7 @@ type Msg
     | MouseUp
     | MouseMove Float
     | AttachmentsMoved (List ( Int, Float ))
-    | GotCommentHeights (List ( Int, Float ))
+    | SetUpCommentConstraints ( List ( Int, Float ), List ( Int, Float ) )
 
 
 init : () -> ( Model, Cmd Msg )
@@ -56,10 +56,10 @@ init _ =
       , dragging = Nothing
       , commentPositions = Nothing
       }
-    , Cmd.batch
-        [ findNewAttachmentTops (List.map .id attachments)
-        , findCommentHeights (List.map .id comments)
-        ]
+    , Task.map2 Tuple.pair
+        (findNewAttachmentTopsTask attachments)
+        (findCommentHeightsTask comments)
+        |> Task.perform SetUpCommentConstraints
     )
 
 
@@ -82,7 +82,7 @@ update msg model =
                                 (Maybe.map (\attachment -> { attachment | top = top }))
                                 model.attachments
                       }
-                    , findNewAttachmentTops (Dict.keys model.attachments)
+                    , findNewAttachmentTops (Dict.values model.attachments)
                     )
 
                 Nothing ->
@@ -91,46 +91,66 @@ update msg model =
         AttachmentsMoved tops ->
             ( model, Cmd.none )
 
-        GotCommentHeights heights ->
-            ( model, Cmd.none )
+        SetUpCommentConstraints ( attachments, commentHeights ) ->
+            ( { model
+                | commentPositions =
+                    Just <|
+                        Constraint.init
+                            { heights = Dict.fromList commentHeights
+                            , attachments =
+                                List.foldl
+                                    (\( commentId, top ) soFar ->
+                                        Dict.update commentId
+                                            (\current ->
+                                                case current of
+                                                    Nothing ->
+                                                        Just top
+
+                                                    Just otherTop ->
+                                                        Just (min top otherTop)
+                                            )
+                                            soFar
+                                    )
+                                    Dict.empty
+                                    attachments
+                            , margin = 10
+                            }
+              }
+            , Cmd.none
+            )
 
 
-findNewAttachmentTopsTask : List Int -> Task Never (List ( Int, Float ))
-findNewAttachmentTopsTask ids =
+findNewAttachmentTopsTask : List Attachment -> Task Never (List ( Int, Float ))
+findNewAttachmentTopsTask attachments =
     -- TODO: this may need Process.sleep 0 to be accurate in all cases
-    ids
+    attachments
         |> List.map
-            (\id ->
+            (\{ id, commentId } ->
                 Dom.getElement ("attachment-" ++ String.fromInt id)
-                    |> Task.map (\{ element } -> Just ( id, element.y ))
+                    |> Task.map (\{ element } -> Just ( commentId, element.y ))
                     |> Task.onError (\_ -> Task.succeed Nothing)
             )
         |> Task.sequence
         |> Task.map (List.filterMap identity)
 
 
-findNewAttachmentTops : List Int -> Cmd Msg
-findNewAttachmentTops ids =
-    Task.perform AttachmentsMoved (findNewAttachmentTopsTask ids)
+findNewAttachmentTops : List Attachment -> Cmd Msg
+findNewAttachmentTops attachments =
+    Task.perform AttachmentsMoved (findNewAttachmentTopsTask attachments)
 
 
-findCommentHeightsTask : List Int -> Task Never (List ( Int, Float ))
-findCommentHeightsTask ids =
+findCommentHeightsTask : List Comment -> Task Never (List ( Int, Float ))
+findCommentHeightsTask comments =
     -- TODO: this may need Process.sleep 0 to be accurate in all cases
-    ids
+    comments
         |> List.map
-            (\id ->
+            (\{ id } ->
                 Dom.getElement ("comment-" ++ String.fromInt id)
                     |> Task.map (\{ element } -> Just ( id, element.height ))
                     |> Task.onError (\_ -> Task.succeed Nothing)
             )
         |> Task.sequence
         |> Task.map (List.filterMap identity)
-
-
-findCommentHeights : List Int -> Cmd Msg
-findCommentHeights ids =
-    Task.perform GotCommentHeights (findCommentHeightsTask ids)
 
 
 view : Model -> Browser.Document Msg
@@ -177,24 +197,24 @@ view model =
                     )
                     (Dict.toList model.attachments)
                 -- comments
-                ++ List.filterMap
+                ++ List.map
                     (\( id, comment ) ->
-                        model.commentPositions
-                            |> Maybe.map Constraint.positions
-                            |> Maybe.andThen (Dict.get id)
-                            |> Maybe.map
-                                (\top ->
-                                    Html.div
-                                        [ Attrs.id ("comment-" ++ String.fromInt id)
+                        Html.div
+                            [ Attrs.id ("comment-" ++ String.fromInt id)
 
-                                        -- position
-                                        , Attrs.style "position" "absolute"
-                                        , Attrs.style "left" (String.fromInt (horizMargin * 2) ++ "px")
-                                        , Attrs.style "top" (String.fromFloat top ++ "px")
-                                        , Attrs.style "transition" "top 0.5s ease"
-                                        ]
-                                        [ Comment.view comment ]
-                                )
+                            -- position
+                            , Attrs.style "transition" "top 0.5s ease"
+                            , Attrs.style "position" "absolute"
+                            , Attrs.style "left" (String.fromInt (horizMargin * 2) ++ "px")
+                            , model.commentPositions
+                                |> Maybe.map Constraint.positions
+                                |> Maybe.andThen (Dict.get id)
+                                -- render way off the screen so we can still get heights
+                                |> Maybe.withDefault -9999
+                                |> (\top -> String.fromFloat top ++ "px")
+                                |> Attrs.style "top"
+                            ]
+                            [ Comment.view comment ]
                     )
                     (Dict.toList model.comments)
             )

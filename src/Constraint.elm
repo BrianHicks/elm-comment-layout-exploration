@@ -14,7 +14,7 @@ type Model
         -- comment ID to actual position
         , positions : Dict Int Float
 
-        -- margin to leave around comments
+        -- margin, in pixels, to leave around comments
         , margin : Int
         }
 
@@ -29,9 +29,10 @@ init { heights, attachments, margin } =
     Model
         { heights = heights
         , attachments = attachments
-        , positions = Dict.empty
+        , positions = attachments
         , margin = margin
         }
+        |> Debug.log "initial"
 
 
 positions : Model -> Dict Int Float
