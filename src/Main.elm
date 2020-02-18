@@ -167,7 +167,7 @@ view : Model -> Browser.Document Msg
 view model =
     { title = "Comment Constraint Experiment"
     , body =
-        [ Html.node "style" [] [ Html.text "body { user-select: none; }" ]
+        [ Html.node "style" [] [ Html.text "* { user-select: none; -moz-user-select: none; -webkit-user-select: none; }" ]
         , Html.main_
             [ Attrs.style "width" "100%"
             , Attrs.style "height" "100vh"
