@@ -5,6 +5,7 @@ import Browser
 import Browser.Dom as Dom
 import Browser.Events
 import Comment exposing (Comment)
+import Constraint
 import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attrs
@@ -17,6 +18,7 @@ type alias Model =
     { attachments : Dict Int Attachment
     , comments : Dict Int Comment
     , dragging : Maybe Int
+    , commentPositions : Maybe Constraint.Model
     }
 
 
@@ -52,6 +54,7 @@ init _ =
                 |> List.map (\({ id } as comment) -> ( id, comment ))
                 |> Dict.fromList
       , dragging = Nothing
+      , commentPositions = Nothing
       }
     , Cmd.batch
         [ findNewAttachmentTops (List.map .id attachments)
@@ -89,10 +92,6 @@ update msg model =
             ( model, Cmd.none )
 
         GotCommentHeights heights ->
-            let
-                _ =
-                    Debug.log "heights" heights
-            in
             ( model, Cmd.none )
 
 
@@ -178,16 +177,24 @@ view model =
                     )
                     (Dict.toList model.attachments)
                 -- comments
-                ++ List.map
+                ++ List.filterMap
                     (\( id, comment ) ->
-                        Html.div
-                            [ Attrs.id ("comment-" ++ String.fromInt id)
+                        model.commentPositions
+                            |> Maybe.map Constraint.positions
+                            |> Maybe.andThen (Dict.get id)
+                            |> Maybe.map
+                                (\top ->
+                                    Html.div
+                                        [ Attrs.id ("comment-" ++ String.fromInt id)
 
-                            -- position
-                            , Attrs.style "position" "absolute"
-                            , Attrs.style "left" (String.fromInt (horizMargin * 2) ++ "px")
-                            ]
-                            [ Comment.view comment ]
+                                        -- position
+                                        , Attrs.style "position" "absolute"
+                                        , Attrs.style "left" (String.fromInt (horizMargin * 2) ++ "px")
+                                        , Attrs.style "top" (String.fromFloat top ++ "px")
+                                        , Attrs.style "transition" "top 0.5s ease"
+                                        ]
+                                        [ Comment.view comment ]
+                                )
                     )
                     (Dict.toList model.comments)
             )
