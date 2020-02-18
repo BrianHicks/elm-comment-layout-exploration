@@ -19,6 +19,7 @@ type alias Model =
     , comments : Dict Int Comment
     , dragging : Maybe Int
     , commentPositions : Maybe Constraint.Model
+    , focused : Maybe Int
     }
 
 
@@ -28,6 +29,8 @@ type Msg
     | MouseMove Float
     | AttachmentsMoved (List ( Int, Float ))
     | SetUpCommentConstraints ( List ( Int, Float ), List ( Int, Float ) )
+    | FocusOn Int
+    | Unfocus
 
 
 init : () -> ( Model, Cmd Msg )
@@ -55,6 +58,7 @@ init _ =
                 |> Dict.fromList
       , dragging = Nothing
       , commentPositions = Nothing
+      , focused = Nothing
       }
     , Task.map2 Tuple.pair
         (findNewAttachmentTopsTask attachments)
@@ -110,6 +114,12 @@ update msg model =
               }
             , Cmd.none
             )
+
+        FocusOn commentId ->
+            ( { model | focused = Just commentId }, Cmd.none )
+
+        Unfocus ->
+            ( { model | focused = Nothing }, Cmd.none )
 
 
 finalAttachments : List ( Int, Float ) -> Dict Int Float
@@ -212,10 +222,17 @@ view model =
                         Html.div
                             [ Attrs.id ("comment-" ++ String.fromInt id)
 
+                            -- events
+                            , Html.Events.onClick (FocusOn id)
+
                             -- position
-                            , Attrs.style "transition" "top 0.5s ease"
+                            , Attrs.style "transition" "top 0.25s ease, left 0.25s ease"
                             , Attrs.style "position" "absolute"
-                            , Attrs.style "left" (String.fromInt (horizMargin * 2) ++ "px")
+                            , if model.focused == Just id then
+                                Attrs.style "left" (String.fromInt (horizMargin * 2 - horizMargin // 2) ++ "px")
+
+                              else
+                                Attrs.style "left" (String.fromInt (horizMargin * 2) ++ "px")
                             , model.commentPositions
                                 |> Maybe.map Constraint.positions
                                 |> Maybe.andThen (Dict.get id)
