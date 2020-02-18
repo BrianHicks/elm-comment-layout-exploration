@@ -10,6 +10,7 @@ import Dict exposing (Dict)
 import Html exposing (Html)
 import Html.Attributes as Attrs
 import Html.Events
+import Html.Keyed as HK
 import Json.Decode as Decode
 import Task exposing (Task)
 
@@ -188,7 +189,7 @@ view model =
     { title = "Comment Constraint Experiment"
     , body =
         [ Html.node "style" [] [ Html.text "* { user-select: none; -moz-user-select: none; -webkit-user-select: none; }" ]
-        , Html.main_
+        , HK.node "main"
             [ Attrs.style "width" "100%"
             , Attrs.style "height" "100vh"
             , Attrs.style "background-color" "aliceblue"
@@ -198,21 +199,28 @@ view model =
                     50
              in
              -- line
-             [ Html.div
-                [ Attrs.style "width" "1px"
-                , Attrs.style "height" "94vh"
-                , Attrs.style "position" "absolute"
-                , Attrs.style "left" (String.fromInt horizMargin ++ "px")
-                , Attrs.style "top" "3vh"
-                , Attrs.style "background-color" "blue"
-                ]
-                []
+             [ ( "line"
+               , Html.div
+                    [ Attrs.style "width" "1px"
+                    , Attrs.style "height" "94vh"
+                    , Attrs.style "position" "absolute"
+                    , Attrs.style "left" (String.fromInt horizMargin ++ "px")
+                    , Attrs.style "top" "3vh"
+                    , Attrs.style "background-color" "blue"
+                    ]
+                    []
+               )
              ]
                 -- attachments
                 ++ List.map
                     (\( id, attachment ) ->
-                        Html.div
-                            [ Attrs.id ("attachment-" ++ String.fromInt id)
+                        let
+                            key =
+                                "attachment-" ++ String.fromInt id
+                        in
+                        ( key
+                        , Html.div
+                            [ Attrs.id key
 
                             -- events
                             , Html.Events.onMouseDown (MouseDownOnAttachment id)
@@ -224,13 +232,19 @@ view model =
                             ]
                             [ Attachment.view attachment
                             ]
+                        )
                     )
                     (Dict.toList model.attachments)
                 -- comments
                 ++ List.map
                     (\( id, comment ) ->
-                        Html.div
-                            [ Attrs.id ("comment-" ++ String.fromInt id)
+                        let
+                            key =
+                                "comment-" ++ String.fromInt id
+                        in
+                        ( key
+                        , Html.div
+                            [ Attrs.id key
 
                             -- events
                             , if model.focused == Just id then
@@ -256,6 +270,7 @@ view model =
                                 |> Attrs.style "top"
                             ]
                             [ Comment.view comment ]
+                        )
                     )
                     (Dict.toList model.comments)
             )
