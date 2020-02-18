@@ -15,22 +15,53 @@ type Model
         , positions : Dict Int Float
 
         -- margin, in pixels, to leave around comments
-        , margin : Int
+        , margin : Float
         }
 
 
 init :
     { heights : Dict Int Float
     , attachments : Dict Int Float
-    , margin : Int
+    , margin : Float
     }
     -> Model
 init { heights, attachments, margin } =
     Model
         { heights = heights
         , attachments = attachments
-        , positions = attachments
+        , positions = Dict.empty
         , margin = margin
+        }
+        |> solveWithoutFocus
+
+
+solveWithoutFocus : Model -> Model
+solveWithoutFocus (Model guts) =
+    Model
+        { guts
+            | positions =
+                guts.attachments
+                    |> Dict.toList
+                    |> List.sortBy Tuple.second
+                    |> List.foldl
+                        (\( id, idealPosition ) ( finalPositions, progressLine ) ->
+                            let
+                                height =
+                                    Dict.get id guts.heights
+                                        |> Maybe.withDefault 0
+                            in
+                            if Debug.log "ideal position" idealPosition >= Debug.log "progress line" progressLine then
+                                ( Dict.insert id idealPosition finalPositions
+                                , idealPosition + height + guts.margin
+                                )
+
+                            else
+                                ( Dict.insert id progressLine finalPositions
+                                , progressLine + height + guts.margin
+                                )
+                        )
+                        ( Dict.empty, 0 )
+                    |> Tuple.first
         }
 
 
