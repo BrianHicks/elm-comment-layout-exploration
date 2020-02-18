@@ -111,7 +111,7 @@ solveWithFocus (Model guts) =
                                 , progressLine + height + newGuts.margin
                                 )
                         )
-                        ( Dict.empty, 0 )
+                        ( newGuts.positions, 0 )
                         goDown
 
                 ( downwardAndUpwardPositions, _ ) =
