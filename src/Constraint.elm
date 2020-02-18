@@ -1,4 +1,4 @@
-module Constraint exposing (Model, init, positions)
+module Constraint exposing (Model, init, positions, updateAttachments)
 
 import Dict exposing (Dict)
 
@@ -50,7 +50,7 @@ solveWithoutFocus (Model guts) =
                                     Dict.get id guts.heights
                                         |> Maybe.withDefault 0
                             in
-                            if Debug.log "ideal position" idealPosition >= Debug.log "progress line" progressLine then
+                            if idealPosition >= progressLine then
                                 ( Dict.insert id idealPosition finalPositions
                                 , idealPosition + height + guts.margin
                                 )
@@ -63,6 +63,15 @@ solveWithoutFocus (Model guts) =
                         ( Dict.empty, 0 )
                     |> Tuple.first
         }
+
+
+updateAttachments : Dict Int Float -> Model -> Model
+updateAttachments attachments (Model guts) =
+    if attachments == guts.attachments then
+        Model guts
+
+    else
+        Model { guts | attachments = attachments } |> solveWithoutFocus
 
 
 positions : Model -> Dict Int Float

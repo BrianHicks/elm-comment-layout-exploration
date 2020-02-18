@@ -88,8 +88,15 @@ update msg model =
                 Nothing ->
                     ( model, Cmd.none )
 
-        AttachmentsMoved tops ->
-            ( model, Cmd.none )
+        AttachmentsMoved attachments ->
+            ( { model
+                | commentPositions =
+                    Maybe.map
+                        (Constraint.updateAttachments (finalAttachments attachments))
+                        model.commentPositions
+              }
+            , Cmd.none
+            )
 
         SetUpCommentConstraints ( attachments, commentHeights ) ->
             ( { model
@@ -97,27 +104,30 @@ update msg model =
                     Just <|
                         Constraint.init
                             { heights = Dict.fromList commentHeights
-                            , attachments =
-                                List.foldl
-                                    (\( commentId, top ) soFar ->
-                                        Dict.update commentId
-                                            (\current ->
-                                                case current of
-                                                    Nothing ->
-                                                        Just top
-
-                                                    Just otherTop ->
-                                                        Just (min top otherTop)
-                                            )
-                                            soFar
-                                    )
-                                    Dict.empty
-                                    attachments
+                            , attachments = finalAttachments attachments
                             , margin = 10
                             }
               }
             , Cmd.none
             )
+
+
+finalAttachments : List ( Int, Float ) -> Dict Int Float
+finalAttachments =
+    List.foldl
+        (\( commentId, top ) soFar ->
+            Dict.update commentId
+                (\current ->
+                    case current of
+                        Nothing ->
+                            Just top
+
+                        Just otherTop ->
+                            Just (min top otherTop)
+                )
+                soFar
+        )
+        Dict.empty
 
 
 findNewAttachmentTopsTask : List Attachment -> Task Never (List ( Int, Float ))
