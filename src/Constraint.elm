@@ -1,15 +1,27 @@
-module Constraint exposing (Model, focusOn, init, positions, unfocus, updateAttachments)
+module Constraint exposing (Model, focusOn, init, positions, unfocus, updateIdealPositions)
 
 import Dict exposing (Dict)
 
 
+{-| Lay out comments according to these constraints:
+
+1.  if there is a focused comment, it must be at it's ideal position
+2.  comments may not overlap
+3.  comments should be as close as possible to their ideal position (but the
+    first comment in an otherwise-overlapping sequence should be at it's ideal position)
+
+Notably missing here: the ability to add new comments. That's just not something
+that we need to solve for yet. Once we do, it should not be too hard to add
+(recalculate the `comments` ordering with respect to the new height and ideal
+position data, and re-solve.)
+
+-}
 type Model
     = Model
-        { -- comment ID to comment height
-          heights : Dict Int Float
-
-        -- comment ID to ideal position
-        , attachments : Dict Int Float
+        { -- comment ID to dimensions. This needs to be sorted by idealPosition
+          -- since this algorithm will be walking the data that way several
+          -- times.
+          comments : List ( Int, { height : Float, idealPosition : Float } )
 
         -- comment ID to actual position
         , positions : Dict Int Float
@@ -24,14 +36,23 @@ type Model
 
 init :
     { heights : Dict Int Float
-    , attachments : Dict Int Float
+    , idealPositions : Dict Int Float
     , margin : Float
     }
     -> Model
-init { heights, attachments, margin } =
+init { heights, idealPositions, margin } =
     Model
-        { heights = heights
-        , attachments = attachments
+        { comments =
+            -- take the intersection of the heights and ideal positions. Gotta have both for a comment to do this algorithm!
+            Dict.merge
+                (\_ _ result -> result)
+                (\key height idealPosition -> Dict.insert key { height = height, idealPosition = idealPosition })
+                (\_ _ result -> result)
+                heights
+                idealPositions
+                Dict.empty
+                |> Dict.toList
+                |> List.sortBy (\( _, { idealPosition } ) -> idealPosition)
         , positions = Dict.empty
         , margin = margin
         , focus = Nothing
@@ -53,16 +74,9 @@ solveWithoutFocus (Model guts) =
     Model
         { guts
             | positions =
-                guts.attachments
-                    |> Dict.toList
-                    |> List.sortBy Tuple.second
+                guts.comments
                     |> List.foldl
-                        (\( id, idealPosition ) ( finalPositions, progressLine ) ->
-                            let
-                                height =
-                                    Dict.get id guts.heights
-                                        |> Maybe.withDefault 0
-                            in
+                        (\( id, { idealPosition, height } ) ( finalPositions, progressLine ) ->
                             if idealPosition >= progressLine then
                                 ( Dict.insert id idealPosition finalPositions
                                 , idealPosition + height + guts.margin
@@ -87,20 +101,13 @@ solveWithFocus (Model guts) =
                     solveWithoutFocus (Model guts)
 
                 ( goUp, goDown ) =
-                    newGuts.attachments
-                        |> Dict.toList
-                        |> List.sortBy Tuple.second
-                        -- == 0 is a trick to get the compiler to generate
-                        -- more efficient code. Will not always be needed!
-                        |> splitAtReversing (\( curId, _ ) -> curId - id == 0)
+                    -- == 0 is a trick to get the compiler to generate
+                    -- more efficient code. Will not always be needed!
+                    splitAtReversing (\( curId, _ ) -> curId - id == 0) newGuts.comments
 
                 ( downwardPositions, _ ) =
                     List.foldl
-                        (\( curId, idealPosition ) ( finalPositions, progressLine ) ->
-                            let
-                                height =
-                                    Dict.get curId newGuts.heights |> Maybe.withDefault 0
-                            in
+                        (\( curId, { height, idealPosition } ) ( finalPositions, progressLine ) ->
                             if idealPosition >= progressLine then
                                 ( Dict.insert curId idealPosition finalPositions
                                 , idealPosition + height + newGuts.margin
@@ -116,11 +123,8 @@ solveWithFocus (Model guts) =
 
                 ( downwardAndUpwardPositions, _ ) =
                     List.foldl
-                        (\( curId, idealPosition ) ( finalPositions, progressLine ) ->
+                        (\( curId, { height, idealPosition } ) ( finalPositions, progressLine ) ->
                             let
-                                height =
-                                    Dict.get curId newGuts.heights |> Maybe.withDefault 0
-
                                 currentPosition =
                                     Dict.get curId newGuts.positions |> Maybe.withDefault idealPosition
                             in
@@ -140,8 +144,8 @@ solveWithFocus (Model guts) =
                         )
                         ( downwardPositions
                         , case goDown of
-                            ( _, start ) :: _ ->
-                                start
+                            ( _, { idealPosition } ) :: _ ->
+                                idealPosition
 
                             _ ->
                                 -- infinity
@@ -155,13 +159,21 @@ solveWithFocus (Model guts) =
             solveWithFocus (Model guts)
 
 
-updateAttachments : Dict Int Float -> Model -> Model
-updateAttachments attachments (Model guts) =
-    if attachments == guts.attachments then
-        Model guts
-
-    else
-        Model { guts | attachments = attachments } |> solve
+updateIdealPositions : Dict Int Float -> Model -> Model
+updateIdealPositions attachments (Model guts) =
+    Model
+        { guts
+            | comments =
+                guts.comments
+                    |> List.filterMap
+                        (\( id, metrics ) ->
+                            Maybe.map
+                                (\newIdealPosition -> ( id, { metrics | idealPosition = newIdealPosition } ))
+                                (Dict.get id attachments)
+                        )
+                    |> List.sortBy (\( _, { idealPosition } ) -> idealPosition)
+        }
+        |> solve
 
 
 focusOn : Int -> Model -> Model

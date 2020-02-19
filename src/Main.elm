@@ -97,7 +97,7 @@ update msg model =
             ( { model
                 | commentPositions =
                     Maybe.map
-                        (Constraint.updateAttachments (finalAttachments attachments))
+                        (Constraint.updateIdealPositions (idealPositionsFor attachments))
                         model.commentPositions
               }
             , Cmd.none
@@ -109,7 +109,7 @@ update msg model =
                     Just <|
                         Constraint.init
                             { heights = Dict.fromList commentHeights
-                            , attachments = finalAttachments attachments
+                            , idealPositions = idealPositionsFor attachments
                             , margin = 10
                             }
               }
@@ -133,8 +133,8 @@ update msg model =
             )
 
 
-finalAttachments : List ( Int, Float ) -> Dict Int Float
-finalAttachments =
+idealPositionsFor : List ( Int, Float ) -> Dict Int Float
+idealPositionsFor =
     List.foldl
         (\( commentId, top ) soFar ->
             Dict.update commentId
